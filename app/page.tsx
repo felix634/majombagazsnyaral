@@ -57,14 +57,22 @@ function PlansList() {
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-6">
-      <section className="mb-8 rounded-2xl overflow-hidden bg-white border border-neutral-200 shadow-sm">
-        <div className="grid md:grid-cols-2">
-          <div className="p-6 md:p-8">
-            <h1 className="text-3xl font-bold mb-3">A bagázs naptára 🗓️</h1>
+      <section className="mb-8 rounded-2xl bg-white border border-neutral-200 shadow-sm p-6 md:p-8">
+        <div className="flex items-start gap-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/kep.jpg"
+            alt="A főnök"
+            className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-2 border-brand-500 shadow flex-shrink-0"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-bold mb-2">A bagázs naptára 🗓️</h1>
             <p className="text-neutral-600 mb-4">
               Hozz létre tervezéseket (nyaralás, meeting, családi progi…), és
-              mindenki bejelölheti mikor ér rá 2026-ban. Látod ki mikor tud,
-              sőt az AI is ajánl időpontot.
+              mindenki bejelölheti mikor ér rá 2026-ban.
             </p>
             <button
               onClick={() => setCreating((v) => !v)}
@@ -72,17 +80,6 @@ function PlansList() {
             >
               {creating ? "Mégse" : "+ Új tervezés"}
             </button>
-          </div>
-          <div className="relative bg-neutral-100 min-h-[220px]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/hero.jpg"
-              alt="A bagázs"
-              className="absolute inset-0 w-full h-full object-cover"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
-            />
           </div>
         </div>
       </section>
