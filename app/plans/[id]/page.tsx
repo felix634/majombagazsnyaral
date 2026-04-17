@@ -8,6 +8,17 @@ import Header from "@/components/Header";
 import YearCalendar from "@/components/YearCalendar";
 import { supabase, type Availability, type Plan } from "@/lib/supabase";
 
+function formatHuDate(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString("hu-HU", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  });
+}
+
 function PlanPage() {
   const params = useParams<{ id: string }>();
   const planId = params.id;
@@ -15,11 +26,7 @@ function PlanPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [avails, setAvails] = useState<Availability[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<{
-    summary: string;
-    days: string[];
-  } | null>(null);
+  const [showBest, setShowBest] = useState(false);
 
   const load = async () => {
     const [{ data: p }, { data: a }] = await Promise.all([
@@ -75,10 +82,25 @@ function PlanPage() {
     return s;
   }, [avails, name]);
 
+  // Legjobb napok: max szavazat értékű napok
+  const bestDays = useMemo(() => {
+    if (availabilityByDay.size === 0) return { max: 0, days: [] as string[] };
+    let max = 0;
+    availabilityByDay.forEach((u) => {
+      if (u.length > max) max = u.length;
+    });
+    if (max === 0) return { max: 0, days: [] as string[] };
+    const days: string[] = [];
+    availabilityByDay.forEach((u, day) => {
+      if (u.length === max) days.push(day);
+    });
+    days.sort();
+    return { max, days };
+  }, [availabilityByDay]);
+
   const toggleDay = async (iso: string) => {
     if (!name) return;
     if (mySet.has(iso)) {
-      // optimistic
       setAvails((prev) =>
         prev.filter((a) => !(a.user_name === name && a.day === iso))
       );
@@ -99,30 +121,6 @@ function PlanPage() {
       await supabase
         .from("availabilities")
         .insert({ plan_id: planId, user_name: name, day: iso });
-    }
-  };
-
-  const runAI = async () => {
-    setAiLoading(true);
-    setAiResult(null);
-    try {
-      const res = await fetch("/api/suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planTitle: plan?.title,
-          planDescription: plan?.description,
-          users: allUsers,
-          availabilityByDay: Object.fromEntries(availabilityByDay),
-        }),
-      });
-      const j = await res.json();
-      if (res.ok) setAiResult(j);
-      else alert("AI hiba: " + (j.error || "ismeretlen"));
-    } catch (e: any) {
-      alert("AI hiba: " + e.message);
-    } finally {
-      setAiLoading(false);
     }
   };
 
@@ -161,17 +159,19 @@ function PlanPage() {
           </p>
         </div>
         <button
-          onClick={runAI}
-          disabled={aiLoading || avails.length === 0}
+          onClick={() => setShowBest((v) => !v)}
+          disabled={avails.length === 0}
           className="bg-black hover:bg-neutral-800 disabled:bg-neutral-300 text-white font-medium px-4 py-2 rounded-lg"
         >
-          {aiLoading ? "AI gondolkodik…" : "✨ AI ajánlás"}
+          {showBest ? "Legjobb időpont elrejtése" : "⭐ Legjobb időpont"}
         </button>
       </div>
 
       <div className="mb-5 rounded-xl bg-white border border-neutral-200 p-4">
         <div className="flex flex-wrap gap-x-6 gap-y-2 items-center text-sm">
-          <span className="text-neutral-500">Résztvevők ({allUsers.length}):</span>
+          <span className="text-neutral-500">
+            Résztvevők ({allUsers.length}):
+          </span>
           {allUsers.map((u) => (
             <span
               key={u}
@@ -202,19 +202,43 @@ function PlanPage() {
             <span className="inline-block w-3 h-3 ring-2 ring-brand-600 rounded-sm"></span>
             te jelölted
           </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-3 h-3 outline outline-2 outline-yellow-400 rounded-sm"></span>
+            legjobb időpont
+          </span>
         </div>
       </div>
 
-      {aiResult && (
+      {showBest && (
         <div className="mb-5 rounded-xl bg-yellow-50 border border-yellow-300 p-4">
-          <h3 className="font-semibold mb-1">✨ AI ajánlás</h3>
-          <p className="text-sm text-neutral-800 whitespace-pre-wrap">
-            {aiResult.summary}
-          </p>
-          {aiResult.days.length > 0 && (
-            <p className="text-xs text-neutral-600 mt-2">
-              Kiemelt napok: {aiResult.days.join(", ")}
+          <h3 className="font-semibold mb-2">⭐ Legjobb időpont</h3>
+          {bestDays.max === 0 ? (
+            <p className="text-sm text-neutral-700">
+              Még senki nem jelölt napot.
             </p>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-800 mb-2">
+                A legtöbb ember ({bestDays.max}/{allUsers.length}) az alábbi{" "}
+                {bestDays.days.length > 1 ? "napokon" : "napon"} ér rá:
+              </p>
+              <ul className="text-sm list-disc pl-5 space-y-0.5">
+                {bestDays.days.slice(0, 20).map((d) => (
+                  <li key={d}>
+                    <span className="font-medium">{formatHuDate(d)}</span>
+                    <span className="text-neutral-600">
+                      {" "}
+                      — {availabilityByDay.get(d)!.join(", ")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {bestDays.days.length > 20 && (
+                <p className="text-xs text-neutral-500 mt-2">
+                  …és még {bestDays.days.length - 20} másik nap.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
@@ -225,7 +249,7 @@ function PlanPage() {
         currentUser={name || ""}
         onToggle={toggleDay}
         totalUsers={allUsers.length}
-        highlightedDays={aiResult?.days || []}
+        highlightedDays={showBest ? bestDays.days : []}
       />
     </main>
   );

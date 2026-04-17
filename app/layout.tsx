@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import PasswordGate from "@/components/PasswordGate";
 
 export const metadata: Metadata = {
   title: "Majombagázs Nyaral",
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="hu">
       <body className="min-h-screen bg-neutral-50 text-neutral-900 antialiased">
-        {children}
+        <PasswordGate>{children}</PasswordGate>
       </body>
     </html>
   );
