@@ -1,0 +1,3 @@
+Tedd ide a saját képedet `hero.jpg` néven.
+A főoldal hero szekciójában jelenik meg.
+Ajánlott méret: min. 800x600, max ~2MB.
